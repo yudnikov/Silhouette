@@ -10,7 +10,7 @@ import play.api.i18n.{ I18nSupport, Messages, MessagesApi }
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.mailer.{ Email, MailerClient }
 import play.api.mvc.Controller
-import ru.yudnikov.core.postman.Postman
+import ru.yudnikov.postman.Postman
 import utils.auth.DefaultEnv
 
 import scala.concurrent.Future

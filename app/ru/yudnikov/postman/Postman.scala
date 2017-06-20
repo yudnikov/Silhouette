@@ -1,4 +1,4 @@
-package ru.yudnikov.core.postman
+package ru.yudnikov.postman
 
 import play.api.libs.mailer
 
