@@ -2,7 +2,7 @@ package modules
 
 import com.google.inject.AbstractModule
 import net.codingwell.scalaguice.ScalaModule
-import utils.{ Postman, SuperPostman }
+import ru.yudnikov.core.postman.{ Postman, SuperPostman }
 
 /**
  * Created by Don on 16.06.2017.

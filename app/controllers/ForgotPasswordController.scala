@@ -5,12 +5,12 @@ import javax.inject.Inject
 import com.mohiva.play.silhouette.api._
 import com.mohiva.play.silhouette.impl.providers.CredentialsProvider
 import forms.ForgotPasswordForm
-import models.services.{ AuthTokenService, UserService }
+import models.{ AuthToken, User }
 import play.api.i18n.{ I18nSupport, Messages, MessagesApi }
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.mailer.{ Email, MailerClient }
 import play.api.mvc.Controller
-import utils.Postman
+import ru.yudnikov.core.postman.Postman
 import utils.auth.DefaultEnv
 
 import scala.concurrent.Future
@@ -18,8 +18,6 @@ import scala.concurrent.Future
 class ForgotPasswordController @Inject() (
   val messagesApi: MessagesApi,
   silhouette: Silhouette[DefaultEnv],
-  userService: UserService,
-  authTokenService: AuthTokenService,
   postman: Postman,
   implicit val webJarAssets: WebJarAssets)
   extends Controller with I18nSupport {
@@ -47,9 +45,9 @@ class ForgotPasswordController @Inject() (
       email => {
         val loginInfo = LoginInfo(CredentialsProvider.ID, email)
         val result = Redirect(routes.SignInController.view()).flashing("info" -> Messages("reset.email.sent"))
-        userService.retrieve(loginInfo).flatMap {
+        User.retrieve(loginInfo).flatMap {
           case Some(user) if user.email.isDefined =>
-            authTokenService.create(user.userID).map { authToken =>
+            Future.successful(new AuthToken(user.reference)).map { authToken =>
               val url = routes.ResetPasswordController.view(authToken.id).absoluteURL()
               postman.send(Email(
                 subject = Messages("email.reset.password.subject"),

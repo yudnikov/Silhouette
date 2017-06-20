@@ -23,8 +23,7 @@ import com.mohiva.play.silhouette.impl.util._
 import com.mohiva.play.silhouette.password.BCryptPasswordHasher
 import com.mohiva.play.silhouette.persistence.daos.{ DelegableAuthInfoDAO, InMemoryAuthInfoDAO }
 import com.mohiva.play.silhouette.persistence.repositories.DelegableAuthInfoRepository
-import models.daos._
-import models.services.{ UserService, UserServiceImpl }
+import models.User
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.codingwell.scalaguice.ScalaModule
@@ -46,8 +45,6 @@ class SilhouetteModule extends AbstractModule with ScalaModule {
     bind[Silhouette[DefaultEnv]].to[SilhouetteProvider[DefaultEnv]]
     bind[UnsecuredErrorHandler].to[CustomUnsecuredErrorHandler]
     bind[SecuredErrorHandler].to[CustomSecuredErrorHandler]
-    bind[UserService].to[UserServiceImpl]
-    bind[UserDAO].to[UserDAOImpl]
     bind[CacheLayer].to[PlayCacheLayer]
     bind[IDGenerator].toInstance(new SecureRandomIDGenerator())
     bind[PasswordHasher].toInstance(new BCryptPasswordHasher)
@@ -74,23 +71,15 @@ class SilhouetteModule extends AbstractModule with ScalaModule {
   /**
    * Provides the Silhouette environment.
    *
-   * @param userService          The user service implementation.
    * @param authenticatorService The authentication service implementation.
    * @param eventBus             The event bus instance.
    * @return The Silhouette environment.
    */
   @Provides
   def provideEnvironment(
-    userService: UserService,
     authenticatorService: AuthenticatorService[CookieAuthenticator],
     eventBus: EventBus): Environment[DefaultEnv] = {
-
-    Environment[DefaultEnv](
-      userService,
-      authenticatorService,
-      Seq(),
-      eventBus
-    )
+    Environment[DefaultEnv](User, authenticatorService, Seq(), eventBus)
   }
 
   /**
@@ -114,13 +103,7 @@ class SilhouetteModule extends AbstractModule with ScalaModule {
     twitterProvider: TwitterProvider,
     xingProvider: XingProvider,
     yahooProvider: YahooProvider): SocialProviderRegistry = {
-    SocialProviderRegistry(Seq( /*googleProvider,
-      facebookProvider,
-      twitterProvider,
-      vkProvider,
-      xingProvider,
-      yahooProvider,
-      clefProvider*/ ))
+    SocialProviderRegistry(Seq())
   }
 
   /**

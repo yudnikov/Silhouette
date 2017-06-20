@@ -3,34 +3,22 @@ package models
 import java.util.UUID
 
 import com.mohiva.play.silhouette.api.{ Identity, LoginInfo }
+import com.mohiva.play.silhouette.api.services.IdentityService
+import ru.yudnikov.core.{ Manager, Model }
 
-/**
- * The user object.
- *
- * @param userID The unique ID of the user.
- * @param loginInfo The linked login info.
- * @param firstName Maybe the first name of the authenticated user.
- * @param lastName Maybe the last name of the authenticated user.
- * @param fullName Maybe the full name of the authenticated user.
- * @param email Maybe the email of the authenticated provider.
- * @param avatarURL Maybe the avatar URL of the authenticated provider.
- * @param activated Indicates that the user has activated its registration.
- */
+import scala.concurrent.Future
+
 case class User(
-  userID: UUID,
   loginInfo: LoginInfo,
   firstName: Option[String],
   lastName: Option[String],
   fullName: Option[String],
   email: Option[String],
   avatarURL: Option[String],
-  activated: Boolean) extends Identity {
+  activated: Boolean = false,
+  id: UUID = UUID.randomUUID()
+) extends Model(User) with Identity {
 
-  /**
-   * Tries to construct a name.
-   *
-   * @return Maybe a name.
-   */
   def name = fullName.orElse {
     firstName -> lastName match {
       case (Some(f), Some(l)) => Some(f + " " + l)
@@ -39,4 +27,8 @@ case class User(
       case _ => None
     }
   }
+}
+
+object User extends Manager[User] with IdentityService[User] {
+  override def retrieve(loginInfo: LoginInfo): Future[Option[User]] = Future.successful(find(_.email.contains(loginInfo.providerKey)))
 }

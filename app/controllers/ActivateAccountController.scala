@@ -6,12 +6,12 @@ import javax.inject.Inject
 
 import com.mohiva.play.silhouette.api._
 import com.mohiva.play.silhouette.impl.providers.CredentialsProvider
-import models.services.{ AuthTokenService, UserService }
+import models.{ AuthToken, User }
 import play.api.i18n.{ I18nSupport, Messages, MessagesApi }
 import play.api.libs.concurrent.Execution.Implicits._
-import play.api.libs.mailer.{ Email, MailerClient }
+import play.api.libs.mailer.Email
 import play.api.mvc.Controller
-import utils.Postman
+import ru.yudnikov.core.postman.Postman
 import utils.auth.DefaultEnv
 
 import scala.concurrent.Future
@@ -19,10 +19,8 @@ import scala.language.postfixOps
 
 class ActivateAccountController @Inject() (
   val messagesApi: MessagesApi,
-  silhouette: Silhouette[DefaultEnv],
-  userService: UserService,
-  authTokenService: AuthTokenService,
   postman: Postman,
+  silhouette: Silhouette[DefaultEnv],
   implicit val webJarAssets: WebJarAssets)
   extends Controller with I18nSupport {
 
@@ -37,9 +35,9 @@ class ActivateAccountController @Inject() (
     val loginInfo = LoginInfo(CredentialsProvider.ID, decodedEmail)
     val result = Redirect(routes.SignInController.view()).flashing("info" -> Messages("activation.email.sent", decodedEmail))
 
-    userService.retrieve(loginInfo).flatMap {
+    User.retrieve(loginInfo).flatMap {
       case Some(user) if !user.activated =>
-        authTokenService.create(user.userID).map { authToken =>
+        Future.successful(new AuthToken(user.reference)).map { authToken =>
           val url = routes.ActivateAccountController.activate(authToken.id).absoluteURL()
           postman.send(Email(
             subject = Messages("email.activate.account.subject"),
@@ -61,15 +59,18 @@ class ActivateAccountController @Inject() (
    * @return The result to display.
    */
   def activate(token: UUID) = silhouette.UnsecuredAction.async { implicit request =>
-    authTokenService.validate(token).flatMap {
-      case Some(authToken) => userService.retrieve(authToken.userID).flatMap {
-        case Some(user) if user.loginInfo.providerID == CredentialsProvider.ID =>
-          userService.save(user.copy(activated = true)).map { _ =>
-            Redirect(routes.SignInController.view()).flashing("success" -> Messages("account.activated"))
-          }
-        case _ => Future.successful(Redirect(routes.SignInController.view()).flashing("error" -> Messages("invalid.activation.link")))
-      }
-      case None => Future.successful(Redirect(routes.SignInController.view()).flashing("error" -> Messages("invalid.activation.link")))
+    AuthToken.validate(token).flatMap {
+      case Some(authToken) =>
+        User.retrieve(authToken.user.get.get.loginInfo).flatMap {
+          case Some(user) if user.loginInfo.providerID == CredentialsProvider.ID =>
+            Future.successful(user.copy(activated = true)).map { _ =>
+              Redirect(routes.SignInController.view()).flashing("success" -> Messages("account.activated"))
+            }
+          case _ =>
+            Future.successful(Redirect(routes.SignInController.view()).flashing("error" -> Messages("invalid.activation.link")))
+        }
+      case None =>
+        Future.successful(Redirect(routes.SignInController.view()).flashing("error" -> Messages("invalid.activation.link")))
     }
   }
 }

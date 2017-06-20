@@ -10,14 +10,13 @@ import com.mohiva.play.silhouette.api.util.{ Clock, Credentials }
 import com.mohiva.play.silhouette.impl.exceptions.IdentityNotFoundException
 import com.mohiva.play.silhouette.impl.providers._
 import forms.SignInForm
-import models.services.UserService
+import models.User
 import net.ceedubs.ficus.Ficus._
 import play.api.Configuration
 import play.api.i18n.{ I18nSupport, Messages, MessagesApi }
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.mvc.Controller
 import utils.auth.DefaultEnv
-
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -25,20 +24,18 @@ import scala.language.postfixOps
 /**
  * The `Sign In` controller.
  *
- * @param messagesApi The Play messages API.
- * @param silhouette The Silhouette stack.
- * @param userService The user service implementation.
- * @param authInfoRepository The auth info repository implementation.
- * @param credentialsProvider The credentials provider.
+ * @param messagesApi            The Play messages API.
+ * @param silhouette             The Silhouette stack.
+ * @param authInfoRepository     The auth info repository implementation.
+ * @param credentialsProvider    The credentials provider.
  * @param socialProviderRegistry The social provider registry.
- * @param configuration The Play configuration.
- * @param clock The clock instance.
- * @param webJarAssets The webjar assets implementation.
+ * @param configuration          The Play configuration.
+ * @param clock                  The clock instance.
+ * @param webJarAssets           The webjar assets implementation.
  */
 class SignInController @Inject() (
   val messagesApi: MessagesApi,
   silhouette: Silhouette[DefaultEnv],
-  userService: UserService,
   authInfoRepository: AuthInfoRepository,
   credentialsProvider: CredentialsProvider,
   socialProviderRegistry: SocialProviderRegistry,
@@ -68,7 +65,7 @@ class SignInController @Inject() (
         val credentials = Credentials(data.email, data.password)
         credentialsProvider.authenticate(credentials).flatMap { loginInfo =>
           val result = Redirect(routes.ApplicationController.index())
-          userService.retrieve(loginInfo).flatMap {
+          User.retrieve(loginInfo).flatMap {
             case Some(user) if !user.activated =>
               Future.successful(Ok(views.html.activateAccount(data.email)))
             case Some(user) =>

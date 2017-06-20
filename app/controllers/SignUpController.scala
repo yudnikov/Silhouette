@@ -1,6 +1,5 @@
 package controllers
 
-import java.util.UUID
 import javax.inject.Inject
 
 import com.mohiva.play.silhouette.api._
@@ -9,13 +8,12 @@ import com.mohiva.play.silhouette.api.services.AvatarService
 import com.mohiva.play.silhouette.api.util.PasswordHasherRegistry
 import com.mohiva.play.silhouette.impl.providers._
 import forms.SignUpForm
-import models.User
-import models.services.{ AuthTokenService, UserService }
+import models.{ AuthToken, User }
 import play.api.i18n.{ I18nSupport, Messages, MessagesApi }
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.mailer.Email
 import play.api.mvc.Controller
-import utils.Postman
+import ru.yudnikov.core.postman.Postman
 import utils.auth.DefaultEnv
 
 import scala.concurrent.Future
@@ -23,9 +21,7 @@ import scala.concurrent.Future
 class SignUpController @Inject() (
   val messagesApi: MessagesApi,
   silhouette: Silhouette[DefaultEnv],
-  userService: UserService,
   authInfoRepository: AuthInfoRepository,
-  authTokenService: AuthTokenService,
   avatarService: AvatarService,
   passwordHasherRegistry: PasswordHasherRegistry,
   postman: Postman,
@@ -52,7 +48,7 @@ class SignUpController @Inject() (
       data => {
         val result = Redirect(routes.SignUpController.view()).flashing("info" -> Messages("sign.up.email.sent", data.email))
         val loginInfo = LoginInfo(CredentialsProvider.ID, data.email)
-        userService.retrieve(loginInfo).flatMap {
+        User.retrieve(loginInfo).flatMap {
           case Some(user) =>
             val url = routes.SignInController.view().absoluteURL()
             postman.send(Email(
@@ -67,20 +63,18 @@ class SignUpController @Inject() (
           case None =>
             val authInfo = passwordHasherRegistry.current.hash(data.password)
             val user = User(
-              userID = UUID.randomUUID(),
               loginInfo = loginInfo,
               firstName = Some(data.firstName),
               lastName = Some(data.lastName),
               fullName = Some(data.firstName + " " + data.lastName),
               email = Some(data.email),
-              avatarURL = None,
-              activated = false
+              avatarURL = None
             )
             for {
               avatar <- avatarService.retrieveURL(data.email)
-              user <- userService.save(user.copy(avatarURL = avatar))
-              authInfo <- authInfoRepository.add(loginInfo, authInfo)
-              authToken <- authTokenService.create(user.userID)
+              user <- Future.successful(user.copy(avatarURL = avatar))
+              //authInfo <- authInfoRepository.add(loginInfo, authInfo)
+              authToken <- Future.successful(new AuthToken(user.reference))
             } yield {
               val url = routes.ActivateAccountController.activate(authToken.id).absoluteURL()
               postman.send(Email(

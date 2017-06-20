@@ -2,16 +2,21 @@ package models
 
 import java.util.UUID
 
-import org.joda.time.DateTime
+import org.joda.time.{ DateTime, DateTimeZone }
+import ru.yudnikov.core.{ Manager, Model, Reference }
 
-/**
- * A token to authenticate a user against an endpoint for a short time period.
- *
- * @param id The unique token ID.
- * @param userID The unique ID of the user the token is associated with.
- * @param expiry The date-time the token expires.
- */
+import scala.concurrent.Future
+
 case class AuthToken(
-  id: UUID,
-  userID: UUID,
-  expiry: DateTime)
+  user: Reference[User],
+  expiry: DateTime = DateTime.now.withZone(DateTimeZone.UTC).plusMinutes(5),
+  id: UUID = UUID.randomUUID()
+) extends Model(AuthToken) {
+
+}
+
+object AuthToken extends Manager[AuthToken] {
+
+  def validate(id: UUID): Future[Option[AuthToken]] = Future.successful(get(id))
+
+}
