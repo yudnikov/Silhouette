@@ -30,6 +30,13 @@ libraryDependencies ++= Seq(
 // https://mvnrepository.com/artifact/org.simplejavamail/simple-java-mail
 libraryDependencies += "org.simplejavamail" % "simple-java-mail" % "4.2.3"
 
+// https://mvnrepository.com/artifact/io.netty/netty
+libraryDependencies += "io.netty" % "netty" % "3.5.2.Final"
+// https://mvnrepository.com/artifact/io.netty/netty-all
+libraryDependencies += "io.netty" % "netty-all" % "4.0.36.Final"
+// https://mvnrepository.com/artifact/com.datastax.cassandra/cassandra-driver-core
+libraryDependencies += "com.datastax.cassandra" % "cassandra-driver-core" % "3.2.0"
+
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
 routesGenerator := InjectedRoutesGenerator
