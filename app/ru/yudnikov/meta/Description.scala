@@ -7,7 +7,7 @@ import scala.reflect.runtime.universe._
 /**
  * Created by Don on 20.06.2017.
  */
-class Description(val aType: Type, val value: Any) {
+case class Description(aType: Type, value: Any) {
 
   def this(v: Any) = this(getType(v.getClass), v)
 
@@ -99,6 +99,8 @@ class Description(val aType: Type, val value: Any) {
   override def equals(obj: scala.Any): Boolean = obj match {
     case d: Description => current == d.current && children == d.children && value == d.value
   }
+
+  def withValue(value: Any): Description = Description(aType, value)
 
 }
 

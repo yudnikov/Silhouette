@@ -23,7 +23,13 @@ trait Cassandra {
 
   protected def executeQuery(query: String): ResultSet = {
     println(s"[Cassandra]: $query")
-    session.execute(query)
+    try
+      session.execute(query)
+    catch {
+      case e: Exception =>
+        e.printStackTrace()
+        null
+    }
   }
 
   // executeQuery(s"create keyspace if not exists $keyspace with replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 3 };")

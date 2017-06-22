@@ -15,33 +15,38 @@ object Parser {
   class Node(name: String, args: List[Node] = List()) {
     val isArgument: Boolean = args.isEmpty
     val isPrimitive: Boolean = !args.exists(!_.isArgument)
+
     def execute(): Any = {
       if (!isArgument) {
         val aClass = Class.forName(name)
-        //println(s"executing $aClass")
-        val result =
-          /* if (isCaseClass) {
-            Reflector.instantiate(aClass, args.map(_))
-          } else */ if (isPrimitive & !Reflector.isCaseClass(aClass)) {
-            fromStringer(aClass) match {
-              case Some(f) =>
-                f(args.map(_.execute()).asInstanceOf[List[String]])
-              case _ =>
-                //println(s"can't define primitive executor for $aClass")
-                null
-            }
-          } else {
-            instanter(aClass) match {
-              case Some(f) =>
-                f(args.map(_.execute()))
-              case _ =>
-                //println(s"can't define non-primitive executor for $aClass")
-                null
-            }
-          }
+        println(s"[Parser.Node]: executing $aClass with args $args")
+        val result = if (isPrimitive & !Reflector.isCaseClass(aClass))
+          instantiatePrimitive(aClass)
+        else
+          instantiateNonPrimitive(aClass)
         result
       } else
         name
+    }
+
+    private def instantiatePrimitive(aClass: Class[_]) = {
+      fromStringer(aClass) match {
+        case Some(f) =>
+          f(args.map(_.execute()).asInstanceOf[List[String]])
+        case None =>
+          println(s"can't define primitive executor for $aClass, looking for non primitive...")
+          instantiateNonPrimitive(aClass)
+      }
+    }
+
+    private def instantiateNonPrimitive(aClass: Class[_]) = {
+      instanter(aClass) match {
+        case Some(f) =>
+          f(args.map(_.execute()))
+        case _ =>
+          println(s"can't define non-primitive executor for $aClass")
+          null
+      }
     }
 
     override def toString: String = if (args.isEmpty) name else s"$name{${args.mkString(",")}}"

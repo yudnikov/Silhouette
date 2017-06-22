@@ -41,7 +41,15 @@ object User extends Manager[User] with IdentityService[User] {
   }
 
   override def retrieve(loginInfo: LoginInfo): Future[Option[User]] =
-    Future.successful(find(_.email.contains(loginInfo.providerKey)))
+    Future.successful {
+      find(_.email.contains(loginInfo.providerKey)) match {
+        case Some(user) =>
+          Some(user)
+        case None =>
+          // todo For instance we have Some(String(email@m.ru)) but asking for String(email@m.ru) - whe should take care?!
+          find("email", Some(loginInfo.providerKey))
+      }
+    }
 
   override def update(model: Model): Unit = {
     /*

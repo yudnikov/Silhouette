@@ -5,18 +5,22 @@ import java.util.UUID
 
 import com.datastax.driver.core.{ Cluster, ResultSet, Row, Session }
 import com.typesafe.config.ConfigFactory
-
 import ru.yudnikov.core._
 import ru.yudnikov.meta.{ Description, Parser, Reflector }
 
 import scala.collection.JavaConversions
+import scala.collection.immutable.ListMap
 import scala.reflect.ClassTag
 
 object CassandraModelStorage extends Cassandra with ModelStorage {
 
   private class Column(val name: String, val description: Description) {
 
+    def this(t: (String, Description)) = this(t._1, t._2)
+
     val defaultSerializer: (Description) => String = _.value.toString
+    // todo implement this maybe with some annotation...
+    val isIndex: Boolean = false
 
     // (type, serializer, parse from String, class)
     lazy val map: (String, (Description) => String, Boolean, Class[_]) = description.aClass.getName match {
@@ -40,13 +44,14 @@ object CassandraModelStorage extends Cassandra with ModelStorage {
 
     def getSuffix: String = if (name == "id") "primary key" else ""
 
-    lazy val value: String = map._2(description)
+    lazy val value: String =
+      map._2(description)
 
     override def toString: String = s"$name ${map._1} $getSuffix".trim
   }
 
   private def createTable[M <: Model](aClass: Class[M], withCollections: Boolean = true): Unit = {
-    val ds = Reflector.describe(aClass)
+    val ds = Reflector.describe(aClass, None)
     val part = ds.partition(t => t._2.isReferenceCollection)
     val columns = part._2.map(t => new Column(t._1, t._2)).toList
     executeQuery(s"create table if not exists ${aClass.getSimpleName} (${columns.mkString(", ")});")
@@ -57,6 +62,13 @@ object CassandraModelStorage extends Cassandra with ModelStorage {
         executeQuery(s"create table if not exists ${thisClass}_$refClass (${thisClass}_id uuid, ${refClass}_id uuid, primary key(${thisClass}_id, ${refClass}_id));")
       }
     }
+  }
+
+  private def createIndex[M <: Model](aClass: Class[M], column: Column): Unit = {
+    createTable(aClass)
+    val tableName = aClass.getSimpleName
+    val columnName = column.name
+    executeQuery(s"create index if not exists ${tableName}_$columnName on $tableName ($columnName)")
   }
 
   private def dropTable[M <: Model](aClass: Class[M], withCollections: Boolean = true): Unit = {
@@ -132,6 +144,7 @@ object CassandraModelStorage extends Cassandra with ModelStorage {
     val columns = part._2.map(t => new Column(t._1, t._2)).toList
     columns.filter(_.description.isReference).foreach(_.description.reference.get.get.get.save())
     // todo save all models from mixed collections
+    // todo don't do columns.map twice
     executeQuery(s"insert into ${aClass.getSimpleName} (${columns.map(_.name).mkString(", ")}) values (${columns.map(_.value).mkString(", ")});")
     for (refCollection <- part._1) {
       val thisClass = aClass.getSimpleName
@@ -147,8 +160,10 @@ object CassandraModelStorage extends Cassandra with ModelStorage {
   override def load[M <: Model: ClassTag](id: UUID): Option[M] = {
     val aClass = implicitly[reflect.ClassTag[M]].runtimeClass.asInstanceOf[Class[M]]
     executeQuery(s"select * from ${aClass.getSimpleName} where id = $id") match {
-      case rs: ResultSet => Some(JavaConversions.asScalaIterator(rs.iterator).map(fetchRow(aClass, _)).toList.head)
-      case _ => None
+      case rs: ResultSet =>
+        Some(JavaConversions.asScalaIterator(rs.iterator).map(fetchRow(aClass, _)).toList.head)
+      case _ =>
+        None
     }
   }
 
@@ -164,4 +179,27 @@ object CassandraModelStorage extends Cassandra with ModelStorage {
     }
   }
 
+  override def find[M <: Model: ClassTag](name: String, value: Any): List[M] = {
+    val aClass = implicitly[reflect.ClassTag[M]].runtimeClass.asInstanceOf[Class[M]]
+    val column = Reflector.describe(aClass, Some(List(name))) match {
+      case listMap: ListMap[String, Description] if listMap.size == 1 =>
+        Some(new Column(listMap.head._1, Description(listMap.head._2.aType, value)))
+      case _ =>
+        println(s"cant describe $aClass's field $name!")
+        None
+    }
+    if (column.isDefined) {
+      val c = column.get
+      createIndex(aClass, c)
+      executeQuery(s"select * from ${aClass.getSimpleName} where ${c.name} = ${c.value}") match {
+        case rs: ResultSet =>
+          JavaConversions.asScalaIterator(rs.iterator).map(
+            fetchRow(aClass, _)
+          ).toList
+        case _ =>
+          Nil
+      }
+    } else
+      Nil
+  }
 }

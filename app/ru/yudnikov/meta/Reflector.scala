@@ -65,12 +65,16 @@ object Reflector {
 
   def getManager[M <: Model](fullName: String): Manager[M] = getObject(fullName).asInstanceOf[Manager[M]]
 
-  def getArgs(aClass: Class[_]): List[String] = {
+  def getArgs(aClass: Class[_], names: Option[List[String]] = None): List[String] = {
     val pc = getPrimaryConstructor(aClass)
     // args - are necessaries to instantiate some class, ordered as "instantiate" method needs
-    pc.paramLists.flatten.collect {
+    val args = pc.paramLists.flatten.collect {
       case ts: TermSymbol => ts.name.toString
     }
+    if (names.nonEmpty)
+      args.intersect(names.get)
+    else
+      args
   }
 
   def getTerms(aClass: Class[_], args: List[String]): Map[String, TermSymbol] = {
@@ -88,6 +92,20 @@ object Reflector {
     s"${aClass.getName}(${Reflector.describe(value).values.map(_.toString).mkString(",")})"
   }
 
+  def describe(value: Any, names: Option[List[String]]): ListMap[String, Description] = {
+    val aClass = value.getClass
+    assume(classOf[Model].isAssignableFrom(aClass) | isCaseClass(aClass))
+    val args = getArgs(aClass, names)
+    val terms = getTerms(aClass, args)
+    // we can describe an instance when and only when number of args equals to number of terms
+    assume(args.size == terms.size)
+    // val description = describe(aClass)
+    val instanceMirror = runtimeMirror.reflect(value)
+    val values: Map[String, (Type, Any)] = args.map(s =>
+      (s, (terms(s).typeSignature.finalResultType, instanceMirror.reflectField(terms(s)).get))).toMap
+    ListMap[String, Description](args.map(s => s -> Description(values(s)._1, values(s)._2)): _*)
+  }
+
   def describe(value: Any): ListMap[String, Description] = {
     val aClass = value.getClass
     assume(classOf[Model].isAssignableFrom(aClass) | isCaseClass(aClass))
@@ -99,7 +117,18 @@ object Reflector {
     val instanceMirror = runtimeMirror.reflect(value)
     val values: Map[String, (Type, Any)] = args.map(s =>
       (s, (terms(s).typeSignature.finalResultType, instanceMirror.reflectField(terms(s)).get))).toMap
-    ListMap[String, Description](args.map(s => s -> new Description(values(s)._1, values(s)._2)): _*)
+    ListMap[String, Description](args.map(s => s -> Description(values(s)._1, values(s)._2)): _*)
+  }
+
+  def describe(aClass: Class[_], names: Option[List[String]]): ListMap[String, Description] = {
+    assume(classOf[Model].isAssignableFrom(aClass) | isCaseClass(aClass))
+    val args = getArgs(aClass, names)
+    val terms = getTerms(aClass, args)
+    // we can describe an instance when and only when number of args equals to number of terms
+    assume(args.size == terms.size)
+    //ListMap[String, Description](args.map(s => s -> new Description(values(s)._1, values(s)._2)): _*)
+    ListMap[String, Description](args.map(s =>
+      s -> Description(terms(s).typeSignature.finalResultType, null)): _*)
   }
 
   def describe(aClass: Class[_]): ListMap[String, Description] = {
@@ -110,7 +139,7 @@ object Reflector {
     assume(args.size == terms.size)
     //ListMap[String, Description](args.map(s => s -> new Description(values(s)._1, values(s)._2)): _*)
     ListMap[String, Description](args.map(s =>
-      s -> new Description(terms(s).typeSignature.finalResultType, null)): _*)
+      s -> Description(terms(s).typeSignature.finalResultType, null)): _*)
   }
 
   /*
@@ -144,6 +173,7 @@ object Reflector {
 
 }
 
+/*
 object MyApp extends App {
 
   println(Reflector.isCaseClass(new LoginInfo("", "")))
@@ -153,4 +183,4 @@ object MyApp extends App {
   //println(Parser.parse[User](User.list.head.toString))
 
 }
-
+*/
