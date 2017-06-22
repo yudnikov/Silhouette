@@ -40,6 +40,9 @@ class SuperPostman @Inject() (val conf: Configuration) extends Postman {
       .text(email.bodyText.get)
       .build()
 
-  override def send(email: mailer.Email): Unit = m.sendMail(toEmail(email), true)
+  override def send(email: mailer.Email): Unit = {
+    println(s"Sending email: $email")
+    m.sendMail(toEmail(email), true)
+  }
 
 }

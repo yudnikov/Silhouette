@@ -7,7 +7,7 @@ import scala.reflect.ClassTag
 /**
  * Created by Don on 20.06.2017.
  */
-trait Storage {
+trait ModelStorage {
 
   def save[M <: Model](model: M): Unit
   def list[M <: Model: ClassTag]: List[M]

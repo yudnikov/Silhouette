@@ -36,7 +36,7 @@ class ActivateAccountController @Inject() (
     val result = Redirect(routes.SignInController.view()).flashing("info" -> Messages("activation.email.sent", decodedEmail))
 
     User.retrieve(loginInfo).flatMap {
-      case Some(user) if !user.activated =>
+      case Some(user) if !user.isActivated =>
         Future.successful(new AuthToken(user.reference)).map { authToken =>
           val url = routes.ActivateAccountController.activate(authToken.id).absoluteURL()
           postman.send(Email(
@@ -63,7 +63,8 @@ class ActivateAccountController @Inject() (
       case Some(authToken) =>
         User.retrieve(authToken.user.get.get.loginInfo).flatMap {
           case Some(user) if user.loginInfo.providerID == CredentialsProvider.ID =>
-            Future.successful(user.copy(activated = true)).map { _ =>
+            Future.successful(user.copy(isActivated = true)).map { user =>
+              user.save()
               Redirect(routes.SignInController.view()).flashing("success" -> Messages("account.activated"))
             }
           case _ =>

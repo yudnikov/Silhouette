@@ -27,9 +27,15 @@ libraryDependencies ++= Seq(
   filters
 )
 
+// https://mvnrepository.com/artifact/org.scala-lang/scala-reflect
+libraryDependencies += "org.scala-lang" % "scala-reflect" % "2.11.8"
+
 // https://mvnrepository.com/artifact/org.simplejavamail/simple-java-mail
 libraryDependencies += "org.simplejavamail" % "simple-java-mail" % "4.2.3"
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// DATASTAX DEPENDENCY MYST BE AFTER NETTY DEPENDENCY, ELSEWARE PLAY WOULDN'T PLAY...
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // https://mvnrepository.com/artifact/io.netty/netty
 libraryDependencies += "io.netty" % "netty" % "3.5.2.Final"
 // https://mvnrepository.com/artifact/io.netty/netty-all

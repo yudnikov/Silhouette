@@ -1,12 +1,17 @@
 package models
 
 import java.util.UUID
+import javax.inject.Inject
 
-import com.mohiva.play.silhouette.api.{ Identity, LoginInfo }
+import com.mohiva.play.silhouette.api.repositories.AuthInfoRepository
+import com.mohiva.play.silhouette.api.{ AuthInfo, Identity, LoginInfo }
 import com.mohiva.play.silhouette.api.services.IdentityService
+import com.mohiva.play.silhouette.api.util.PasswordInfo
+import com.mohiva.play.silhouette.persistence.daos.{ DelegableAuthInfoDAO, InMemoryAuthInfoDAO }
 import ru.yudnikov.core.{ Manager, Model }
 
 import scala.concurrent.Future
+import scala.reflect.ClassTag
 
 case class User(
   loginInfo: LoginInfo,
@@ -15,7 +20,7 @@ case class User(
   fullName: Option[String],
   email: Option[String],
   avatarURL: Option[String],
-  activated: Boolean = false,
+  isActivated: Boolean = false,
   id: UUID = UUID.randomUUID()
 ) extends Model(User) with Identity {
 
@@ -30,5 +35,20 @@ case class User(
 }
 
 object User extends Manager[User] with IdentityService[User] {
-  override def retrieve(loginInfo: LoginInfo): Future[Option[User]] = Future.successful(find(_.email.contains(loginInfo.providerKey)))
+
+  trait AuthInfoStorage {
+    def load[T <: AuthInfo: ClassTag](loginInfo: LoginInfo): Option[T]
+  }
+
+  override def retrieve(loginInfo: LoginInfo): Future[Option[User]] =
+    Future.successful(find(_.email.contains(loginInfo.providerKey)))
+
+  override def update(model: Model): Unit = {
+    /*
+    val user = model.asInstanceOf[User]
+    if (user.isActivated) save(user)
+    */
+    super.update(model)
+  }
+
 }

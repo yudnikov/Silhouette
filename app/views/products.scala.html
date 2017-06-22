@@ -1,0 +1,7 @@
+@(products: List[Product])
+
+<div>
+    @for(p <- products) {
+        <p>@p.productCategory: @p.name, @p.description</p>
+    }
+</div>

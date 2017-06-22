@@ -19,6 +19,7 @@ class Description(val aType: Type, val value: Any) {
       val module = Reflector.runtimeMirror.reflectModule(moduleSymbol)
       module.instance.getClass.getName
     case s: String if s.contains(classOf[Reference[_]].getName) =>
+      // todo handle Reference.M case
       // assume that it's very bad and slow
       classOf[Reference[_]].getName
     case s: String =>

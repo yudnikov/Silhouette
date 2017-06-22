@@ -19,7 +19,7 @@ abstract class Model(private val manager: Manager[Model]) {
   def save(): Unit = manager.save(this)
 
   override def toString: String = {
-    s"${getClass.getName}(${Reflector.describe(this).values.map(_.toString).mkString(",")})"
+    Reflector.toString(this)
   }
 
   update()

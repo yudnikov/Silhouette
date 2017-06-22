@@ -2,6 +2,7 @@ package ru.yudnikov.meta
 
 import java.util.{ Date, UUID }
 
+import com.mohiva.play.silhouette.api.LoginInfo
 import org.joda.time.DateTime
 import ru.yudnikov.core.{ Model, Reference }
 import ru.yudnikov.meta.Reflector.{ getObject, instantiate }
@@ -14,13 +15,14 @@ object Parser {
   class Node(name: String, args: List[Node] = List()) {
     val isArgument: Boolean = args.isEmpty
     val isPrimitive: Boolean = !args.exists(!_.isArgument)
-
     def execute(): Any = {
       if (!isArgument) {
         val aClass = Class.forName(name)
         //println(s"executing $aClass")
         val result =
-          if (isPrimitive) {
+          /* if (isCaseClass) {
+            Reflector.instantiate(aClass, args.map(_))
+          } else */ if (isPrimitive & !Reflector.isCaseClass(aClass)) {
             fromStringer(aClass) match {
               case Some(f) =>
                 f(args.map(_.execute()).asInstanceOf[List[String]])
@@ -59,23 +61,25 @@ object Parser {
   }
 
   def parseArgs(chars: List[Char], i: Int = 0, result: List[String] = List()): List[String] = {
-    val j = chars.head match {
-      case '(' => i + 1
-      case ')' => i - 1
-      case _ => i
-    }
-    chars.tail.length match {
-      case 0 if result.nonEmpty =>
-        (result.head + chars.head :: result.tail).reverse
-      case 0 =>
-        (chars.head.toString :: Nil).reverse
-      case _ if result.isEmpty =>
-        parseArgs(chars.tail, j, List(chars.head.toString))
-      case _ if chars.head == ',' && j == 0 =>
-        parseArgs(chars.tail, j, "" :: result)
-      case _ =>
-        parseArgs(chars.tail, j, result.head + chars.head :: result.tail)
-    }
+    if (chars.nonEmpty) {
+      val j = chars.head match {
+        case '(' => i + 1
+        case ')' => i - 1
+        case _ => i
+      }
+      chars.tail.length match {
+        case 0 if result.nonEmpty =>
+          (result.head + chars.head :: result.tail).reverse
+        case 0 =>
+          (chars.head.toString :: Nil).reverse
+        case _ if result.isEmpty =>
+          parseArgs(chars.tail, j, List(chars.head.toString))
+        case _ if chars.head == ',' && j == 0 =>
+          parseArgs(chars.tail, j, "" :: result)
+        case _ =>
+          parseArgs(chars.tail, j, result.head + chars.head :: result.tail)
+      }
+    } else result
   }
 
   // returns function which instantiates class from list of strings
@@ -90,9 +94,9 @@ object Parser {
       Some(list => if (list.head == "true") true else false)
     case _ if aClass == Class.forName("scala.Double") | aClass == Class.forName("java.lang.Double") =>
       Some(list => list.head.toDouble)
-    case _ if aClass == Class.forName("java.util.Date") =>
+    case _ if aClass == classOf[Date] =>
       Some(list => new Date(list.head.toLong))
-    case _ if aClass == Class.forName("org.joda.time.DateTime") =>
+    case _ if aClass == classOf[DateTime] =>
       Some(list => new DateTime(list.head.toLong))
     case _ if classOf[Enumeration].isAssignableFrom(aClass) =>
       Some(list => getObject(aClass.getName).asInstanceOf[Enumeration].withName(list.head))
@@ -118,6 +122,8 @@ object Parser {
           case "None" => None
           case x: Any => Some(x)
         })
+      case _ if Reflector.isCaseClass(aClass) =>
+        Some(instantiate(aClass, _))
       case _ => None
     }
   }

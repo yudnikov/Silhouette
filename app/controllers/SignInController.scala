@@ -9,14 +9,16 @@ import com.mohiva.play.silhouette.api.repositories.AuthInfoRepository
 import com.mohiva.play.silhouette.api.util.{ Clock, Credentials }
 import com.mohiva.play.silhouette.impl.exceptions.IdentityNotFoundException
 import com.mohiva.play.silhouette.impl.providers._
+import com.sun.activation.registries.MailcapTokenizer
 import forms.SignInForm
-import models.User
+import models.{ AuthToken, User }
 import net.ceedubs.ficus.Ficus._
 import play.api.Configuration
 import play.api.i18n.{ I18nSupport, Messages, MessagesApi }
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.mvc.Controller
 import utils.auth.DefaultEnv
+
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -66,7 +68,7 @@ class SignInController @Inject() (
         credentialsProvider.authenticate(credentials).flatMap { loginInfo =>
           val result = Redirect(routes.ApplicationController.index())
           User.retrieve(loginInfo).flatMap {
-            case Some(user) if !user.activated =>
+            case Some(user) if !user.isActivated =>
               Future.successful(Ok(views.html.activateAccount(data.email)))
             case Some(user) =>
               val c = configuration.underlying
